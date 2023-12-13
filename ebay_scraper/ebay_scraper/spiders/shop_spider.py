@@ -7,6 +7,9 @@ import math
 from urllib.parse import urlencode
 import os
 import numpy as np
+from bs4 import BeautifulSoup
+from lxml import html
+
 class ShopSpider(scrapy.Spider):
     name = 'shop-scraper'
     file_path = os.path.abspath("ebay_scraper/spiders/spider_config.json")
@@ -15,12 +18,13 @@ class ShopSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        shop_url = self.shop_url
-        base_range = self.get_base_range()
+        pass
+        # shop_url = self.shop_url
+        # base_range = self.get_base_range()
 
-        for _range in base_range:
-            url = shop_url + f"&_udlo={_range[0]}&_udhi={_range[1]}"
-            yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range})
+        # for _range in base_range:
+        #     url = shop_url + f"&_udlo={_range[0]}&_udhi={_range[1]}"
+        #     yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range})
 
 
     def scrape_all_ranges(self,response):
@@ -42,16 +46,32 @@ class ShopSpider(scrapy.Spider):
 
     def scrape_all_pages(self,response):
         product_count = self.product_count(response)
-        number_of_pages = math.ceil(product_count/250)
+        number_of_pages = math.ceil(product_count/240)
         for page_num in range(number_of_pages):
             url = response.url+"&_pgn="+str(page_num+1)
             yield scrapy.Request(url=url, callback=self.scrape_page)
     
 
     def scrape_page(self,response):
-        pass
-            
+        soup = BeautifulSoup(response.text,"html.parser")
+        product_elements = soup.select("ul>li.s-item__pl-on-bottom")
 
+        for element in product_elements:
+            product = {}
+            product["Image URL"] = element.select_one("div.image-treatment img[loading='lazy']").get("src")
+            product["Title"] = element.select_one("div.s-item__title").text
+            product["Price"] = float(re.findall(r"[\d,\.]+",element.select_one("span.s-item__price").text.replace(",","."))[0])
+            product["Observer"] = int(re.findall(r"\d+",element.select_one("span.s-item__watchCountTotal").text)[0])
+            product["Solds"] = int(re.findall(r"\d+",element.select_one("span.s-item__quantitySold").text)[0])
+            product["Reviews count"] =  int(re.findall(r"\d+",element.select_one("span.s-item__reviews-count span").text)[0])
+            product["Sellername"] = re.findall(r"(.*)\([\d,\.]+\)",element.select_one("span.s-item__seller-info").text)[0]
+            product["Seller_URL"] ="" # Not found :(
+            product["product Url"] = element.select_one("a[data-interactions].s-item__link").get("href")
+            product["scraped_status"] = 0
+            product["pid"] = re.findall(r"/(\d+)\?",product["product Url"])[0]
+            # save product on database
+
+            
     def product_count(self,response):
 
         digit_pattern = re.compile(r'\d+')
