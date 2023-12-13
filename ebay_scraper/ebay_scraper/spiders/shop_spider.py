@@ -65,17 +65,28 @@ class ShopSpider(scrapy.Spider):
 
         for element in product_elements:
             product = {}
-            product["Image URL"] = element.select_one("div.image-treatment img[loading='lazy']").get("src")
-            product["Title"] = element.select_one("div.s-item__title").text
-            product["Price"] = float(re.findall(r"[\d,\.]+",element.select_one("span.s-item__price").text.replace(",","."))[0])
-            product["Observer"] = int(re.findall(r"\d+",element.select_one("span.s-item__watchCountTotal").text)[0])
-            product["Solds"] = int(re.findall(r"\d+",element.select_one("span.s-item__quantitySold").text)[0])
-            product["Reviews count"] =  int(re.findall(r"\d+",element.select_one("span.s-item__reviews-count span").text)[0])
-            product["Sellername"] = re.findall(r"(.*)\([\d,\.]+\)",element.select_one("span.s-item__seller-info").text)[0]
-            product["Seller_URL"] ="" # Not found :(
-            product["product Url"] = element.select_one("a[data-interactions].s-item__link").get("href")
-            product["scraped_status"] = 0
-            product["pid"] = re.findall(r"/(\d+)\?",product["product Url"])[0]
+            try:product["Image URL"] = element.select_one("div.image-treatment img[loading='lazy']").get("src")
+            except:pass
+            try:product["Title"] = element.select_one("div.s-item__title").text
+            except:pass
+            try:product["Price"] = float(re.findall(r"[\d,\.]+",element.select_one("span.s-item__price").text.replace(",","."))[0])
+            except:pass
+            try:product["Observer"] = int(re.findall(r"\d+",element.select_one("span.s-item__watchCountTotal").text)[0])
+            except:pass
+            try:product["Solds"] = int(re.findall(r"\d+",element.select_one("span.s-item__quantitySold").text)[0])
+            except:pass
+            try:product["Reviews count"] =  int(re.findall(r"\d+",element.select_one("span.s-item__reviews-count span").text)[0])
+            except:pass
+            try:product["Sellername"] = re.findall(r"(.*)\([\d,\.]+\)",element.select_one("span.s-item__seller-info").text)[0]
+            except:pass
+            try:product["Seller_URL"] ="" # Not found :(
+            except:pass
+            try:product["product Url"] = element.select_one("a[data-interactions].s-item__link").get("href")
+            except:pass
+            try:product["scraped_status"] = 0
+            except:pass
+            try:product["pid"] = re.findall(r"/(\d+)\?",product["product Url"])[0]
+            except:pass
             # save product on database
             self.collection.insert_one(product)
 
