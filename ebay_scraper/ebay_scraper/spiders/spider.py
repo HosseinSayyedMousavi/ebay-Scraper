@@ -2,6 +2,8 @@ import scrapy
 import json
 import requests
 import re
+from scrapy.crawler import CrawlerProcess
+
 class EbaySpider(scrapy.Spider):
     name = 'ebay-scraper'
     categories_tree = []
@@ -49,41 +51,41 @@ class EbaySpider(scrapy.Spider):
         param_url = re.findall(r'(.*\/)\d+',response.url)[0]
         refine = self.refine_end_point(response)
         group_category = {}
+
         for group in refine["group"]:
             if group["fieldId"] == "category":
                 group_category = group
                 break
+
         has_child = True
+
         if len(group_category["entries"]) == 1:
             has_child = False
+            self.children_without_child.append(category)
+            yield scrapy.Request(url=category["url"], callback=self.scrape_category)
+
         if has_child:
             children_names = [entry["label"]["textSpans"][0]["text"] for entry in group_category["entries"] if entry["paramValue"]!=paramValue ]
             children_urls = [ param_url + entry["paramValue"] for entry in group_category["entries"] if entry["paramValue"]!=paramValue ]
 
-        for name , url in zip(children_names,children_urls):
-            child_category = {"parent":category["name"] , "url":url,"name":name}
-
-            if self.product_count(response) < 10000:
-                self.children_without_child.append(child_category)
-                yield scrapy.Request(url=url, callback=self.scrape_category)
-
-            elif not has_child:
-                self.children_without_child.append(child_category)
-                yield scrapy.Request(url=url, callback=self.scrape_category)
-            
-            else:
-                yield scrapy.Request(url=url, callback=self.get_grand_children,meta={'category': child_category})
+            for name , url in zip(children_names,children_urls):
+                child_category = {"parent":category["name"] , "url":url,"name":name}
+                if self.product_count(response) < 10000:
+                    self.children_without_child.append(child_category)
+                    yield scrapy.Request(url=url, callback=self.scrape_category)
+                else:
+                    yield scrapy.Request(url=url, callback=self.get_grand_children,meta={'category': child_category})
 
 
     def scrape_category(self,response):
         if self.product_count(response) > 10000:
             filters = self.get_filters(response)
-        for filter in filters:
-            for sub_filter in filter["filter_list"]:
-                pass
+            self.combine_filters(filters,response)
+        else:
+            self.scrape_all_pages(response)
 
 
-    def filter_2_params(self,filters):
+    def filter2params(self,filters):
         params ={}
 
         for filter in filters:
@@ -96,11 +98,7 @@ class EbaySpider(scrapy.Spider):
         return params
 
 
-
     def get_filters(self,response):
-
-
-        filter_list=[]
 
         groups = self.refine_end_point(response)["group"]
         aspect_group = {}
@@ -108,22 +106,23 @@ class EbaySpider(scrapy.Spider):
             if group["fieldId"] == "aspectlist":
                 aspect_group = group
                 break
+        data={}
         for entry in aspect_group["entries"]:
-                data={}
-                data["filter_name"] = entry["paramKey"]
-                data["filter_list"] = []
+                data[entry["paramKey"]] =[]
                 for entry2 in entry["entries"]:
-                    data["filter_list"].append(entry2["paramValue"])
-                filter_list.append(data)
+                    data[entry["paramKey"]].append(entry2["paramValue"])
 
-        return filter_list
+        return data
 
 
     def product_count(self,response):
-        digit_pattern = re.compile(r'\d+')
-        digit_matches = digit_pattern.findall(response.css("h2.srp-controls__count-heading ::text").extract()[0])
-        result = ''.join(digit_matches)
-        return int(result)
+        try:
+            digit_pattern = re.compile(r'\d+')
+            digit_matches = digit_pattern.findall(response.css("h2.srp-controls__count-heading ::text").extract()[0])
+            result = ''.join(digit_matches)
+            return int(result)
+        except:
+            return False
     
     
     def refine_end_point(self,response):
@@ -153,3 +152,27 @@ class EbaySpider(scrapy.Spider):
         }
         r = requests.request("GET",url=re.findall(r'.*\/',response.url)[0],params=params,headers=headers)
         return r.json()
+    
+
+    def combine_filters(self,filters,response, current_index=0, filter_params={}):
+
+        if filter_params:
+            url = response.url + "?" + self.filter2params(filter_params)
+            request = scrapy.Request(url)
+            resp = self.crawler.engine.download(request, self)
+
+            if  self.product_count(resp) < 10000 :
+                self.scrape_all_pages(resp)
+                return
+        
+        if current_index < len(list(filters.keys())):
+            current_filter_name = list(filters.keys())[current_index]
+            current_list = filters[current_filter_name]
+            for item in current_list:
+                filter_params[current_filter_name]=[item]
+                self.combine_filters(filters, response ,current_index + 1, filter_params)
+                filter_params.pop(current_filter_name)
+
+
+        product_count = self.product_count(response)
+        number_of_pages = math.ceil(product_count/250)
