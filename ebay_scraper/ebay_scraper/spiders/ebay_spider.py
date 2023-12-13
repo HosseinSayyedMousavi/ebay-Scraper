@@ -123,7 +123,7 @@ class EbaySpider(scrapy.Spider):
             result = ''.join(digit_matches)
             return int(result)
         except:
-            return 1000000
+            return 0
     
     
     def refine_end_point(self,response):
