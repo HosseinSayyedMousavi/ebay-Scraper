@@ -40,45 +40,48 @@ class EbaySpider(scrapy.Spider):
             
             child_category = {"parent":category["name"],"nam":name,"url":url}
             self.categories_tree.append(child_category)
-            yield scrapy.Request(url=url, callback=self.get_grand_children,meta={'category': child_category,'brothers':children_urls})
+            yield scrapy.Request(url=url, callback=self.get_grand_children,meta={'category': child_category})
     
 
     def get_grand_children(self,response):
         category = response.meta.get('category')
-        brothers = response.meta.get('brothers')
-        may_child_or_brothers_names = response.xpath("//div[@class='dialog__cell']/section[1]/div[@class='b-list__header']/following-sibling::ul/li/a[@class='b-textlink b-textlink--sibling']/text()").extract()
-        child_or_brothers_urls = response.xpath("//div[@class='dialog__cell']/section[1]/div[@class='b-list__header']/following-sibling::ul/li/a[@class='b-textlink b-textlink--sibling']/@href").extract()
-        for name , url in zip(may_child_or_brothers_names,child_or_brothers_urls):
+        paramValue = re.findall(r'\/(\d+)\/',response.url)[0]
+        param_url = re.findall(r'(.*\/)\d+',response.url)[0]
+        refine = self.refine_end_point(response)
+        group_category = {}
+        for group in refine["group"]:
+            if group["fieldId"] == "category":
+                group_category = group
+                break
+        has_child = True
+        if len(group_category["entries"]) == 1:
+            has_child = False
+        if has_child:
+            children_names = [entry["label"]["textSpans"][0]["text"] for entry in group_category["entries"] if entry["paramValue"]!=paramValue ]
+            children_urls = [ param_url + entry["paramValue"] for entry in group_category["entries"] if entry["paramValue"]!=paramValue ]
+
+        for name , url in zip(children_names,children_urls):
             child_category = {"parent":category["name"] , "url":url,"name":name}
 
             if self.product_count(response) < 10000:
                 self.children_without_child.append(child_category)
                 yield scrapy.Request(url=url, callback=self.scrape_category)
 
-            elif not self.has_child(url=url,brothers=brothers):
+            elif not has_child:
                 self.children_without_child.append(child_category)
                 yield scrapy.Request(url=url, callback=self.scrape_category)
             
             else:
-                yield scrapy.Request(url=url, callback=self.get_grand_children,meta={'category': child_category,'brothers':child_or_brothers_urls})
+                yield scrapy.Request(url=url, callback=self.get_grand_children,meta={'category': child_category})
 
 
-    def has_child(self,url,brothers):
-        request = scrapy.Request(url)
-        response = self.crawler.engine.download(request, self)
-        child_or_brothers_urls = response.xpath("//div[@class='dialog__cell']/section[1]/div[@class='b-list__header']/following-sibling::ul/li/a[@class='b-textlink b-textlink--sibling']/@href").extract()
-        if all(url in brothers for url in child_or_brothers_urls):
-            return False
-        else:
-            return True
-
-    
     def scrape_category(self,response):
         if self.product_count(response) > 10000:
             filters = self.get_filters(response)
         for filter in filters:
             for sub_filter in filter["filter_list"]:
                 pass
+
 
     def filter_2_params(self,filters):
         params ={}
@@ -100,15 +103,17 @@ class EbaySpider(scrapy.Spider):
         filter_list=[]
 
         groups = self.refine_end_point(response)["group"]
+        aspect_group = {}
         for group in groups:
-
-            entries = group["entries"]
-            for f in entries:
+            if group["fieldId"] == "aspectlist":
+                aspect_group = group
+                break
+        for entry in aspect_group["entries"]:
                 data={}
-                data["filter_name"] = f["paramKey"]
+                data["filter_name"] = entry["paramKey"]
                 data["filter_list"] = []
-                for f2 in f["entries"]:
-                    data["filter_list"].append(f2["label"]["textSpans"][0]["text"])
+                for entry2 in entry["entries"]:
+                    data["filter_list"].append(entry2["paramValue"])
                 filter_list.append(data)
 
         return filter_list
