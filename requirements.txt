@@ -1,3 +1,5 @@
 pprintpp
 scrapy
+bs4
 numpy
+pymongo

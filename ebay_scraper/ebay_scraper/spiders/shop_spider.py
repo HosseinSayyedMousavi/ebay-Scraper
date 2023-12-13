@@ -9,22 +9,29 @@ import os
 import numpy as np
 from bs4 import BeautifulSoup
 from lxml import html
+from pymongo import MongoClient
+
+
+
 
 class ShopSpider(scrapy.Spider):
     name = 'shop-scraper'
     file_path = os.path.abspath("ebay_scraper/spiders/spider_config.json")
+    client = MongoClient("mongodb+srv://new_user_hossein:Rvkn86GT8wx6LZdw@cluster0.2yara40.mongodb.net/test")
+    db = client.woospa_products
+    collection = db.woospa_collection
+
     with open(file_path,"r") as f:
         shop_url = json.loads(f.read())["shop_url"]
 
 
     def start_requests(self):
-        pass
-        # shop_url = self.shop_url
-        # base_range = self.get_base_range()
+        shop_url = self.shop_url
+        base_range = self.get_base_range()
 
-        # for _range in base_range:
-        #     url = shop_url + f"&_udlo={_range[0]}&_udhi={_range[1]}"
-        #     yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range})
+        for _range in base_range:
+            url = shop_url + f"&_udlo={_range[0]}&_udhi={_range[1]}"
+            yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range})
 
 
     def scrape_all_ranges(self,response):
@@ -70,8 +77,9 @@ class ShopSpider(scrapy.Spider):
             product["scraped_status"] = 0
             product["pid"] = re.findall(r"/(\d+)\?",product["product Url"])[0]
             # save product on database
+            self.collection.insert_one(product)
 
-            
+
     def product_count(self,response):
 
         digit_pattern = re.compile(r'\d+')
