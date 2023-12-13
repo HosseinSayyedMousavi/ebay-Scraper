@@ -3,7 +3,8 @@ import json
 import requests
 import re
 from scrapy.crawler import CrawlerProcess
-
+import math
+from urllib.parse import urlencode
 class EbaySpider(scrapy.Spider):
     name = 'ebay-scraper'
     categories_tree = []
@@ -86,14 +87,14 @@ class EbaySpider(scrapy.Spider):
 
 
     def filter2params(self,filters):
-        params ={}
+        params ={"rt":"nc","mag":"1"}
 
-        for filter in filters:
-            params[filter["filter_name"]] =""
+        for filter_name in filters.keys():
+            params[filter_name] = ""
 
-            for p in filter["filter_list"]:
-                params[filter["filter_name"]] += "|"+ p
-            params[filter["filter_name"]] = params[filter["filter_name"]].strip("|")
+            for p in filters[filter_name] :
+                params[filter_name] += "|"+ p
+            params[filter_name] = params[filter_name].strip("|")
 
         return params
 
@@ -157,7 +158,7 @@ class EbaySpider(scrapy.Spider):
     def combine_filters(self,filters,response, current_index=0, filter_params={}):
 
         if filter_params:
-            url = response.url + "?" + self.filter2params(filter_params)
+            url = response.url + "?" + urlencode(self.filter2params(filter_params))
             request = scrapy.Request(url)
             resp = self.crawler.engine.download(request, self)
 
@@ -174,5 +175,12 @@ class EbaySpider(scrapy.Spider):
                 filter_params.pop(current_filter_name)
 
 
+    def scrape_all_pages(self,response):
         product_count = self.product_count(response)
         number_of_pages = math.ceil(product_count/250)
+        for page_num in range(number_of_pages):
+            url = response.url+"&_pgn="+str(page_num+1)
+            yield scrapy.Request(url=url, callback=self.scrape_page)
+    
+    def scrape_page(self,response):
+        pass
