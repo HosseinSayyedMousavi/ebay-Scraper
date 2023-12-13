@@ -79,7 +79,7 @@ class EbaySpider(scrapy.Spider):
 
 
     def scrape_category(self,response):
-        if self.product_count(response) > 10000:
+        if self.product_count(response) >= 10000:
             filters = self.get_filters(response)
             self.combine_filters(filters,response)
         else:
@@ -160,7 +160,7 @@ class EbaySpider(scrapy.Spider):
         if filter_params:
             url = response.url + "?" + urlencode(self.filter2params(filter_params))
             request = scrapy.Request(url)
-            resp = self.crawler.engine.download(request, self)
+            resp = self.crawler.engine.downloader.fetch(request, spider = self)
 
             if  self.product_count(resp) < 10000 :
                 self.scrape_all_pages(resp)
@@ -178,7 +178,7 @@ class EbaySpider(scrapy.Spider):
     def scrape_all_pages(self,response):
         product_count = self.product_count(response)
         number_of_pages = math.ceil(product_count/48)
-        for page_num in range(number_of_pages):
+        for page_num in range(0,number_of_pages):
             url = response.url+"&_pgn="+str(page_num+1)
             yield scrapy.Request(url=url, callback=self.scrape_page)
     
