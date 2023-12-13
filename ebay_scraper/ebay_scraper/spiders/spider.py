@@ -123,7 +123,7 @@ class EbaySpider(scrapy.Spider):
             result = ''.join(digit_matches)
             return int(result)
         except:
-            return False
+            return 1000000
     
     
     def refine_end_point(self,response):
@@ -177,10 +177,11 @@ class EbaySpider(scrapy.Spider):
 
     def scrape_all_pages(self,response):
         product_count = self.product_count(response)
-        number_of_pages = math.ceil(product_count/250)
+        number_of_pages = math.ceil(product_count/48)
         for page_num in range(number_of_pages):
             url = response.url+"&_pgn="+str(page_num+1)
             yield scrapy.Request(url=url, callback=self.scrape_page)
     
+
     def scrape_page(self,response):
         pass
