@@ -1,17 +1,14 @@
 import scrapy
 import json
-import requests
 import re
-from scrapy.crawler import CrawlerProcess
 import math
-from urllib.parse import urlencode
 import os
 import numpy as np
 from bs4 import BeautifulSoup
-from lxml import html
 from pymongo import MongoClient
-
-
+import  pprintpp 
+import logging
+logging.basicConfig(level=logging.INFO)
 
 
 class ShopSpider(scrapy.Spider):
@@ -30,33 +27,33 @@ class ShopSpider(scrapy.Spider):
         base_range = self.get_base_range()
 
         for _range in base_range:
-            url = shop_url + f"&_udlo={_range[0]}&_udhi={_range[1]}"
+
+            url = shop_url + f"&_udhi={_range[0]}&_udlo={_range[1]}"
             yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range})
 
 
     def scrape_all_ranges(self,response):
         shop_url = self.shop_url
         _range = response.meta.get("_range")
-        if self.product_count(response) < 10000:
-            yield scrapy.Request(url=response.url, callback=self.scrape_all_pages)
+        product_count = self.product_count(response)
+        if product_count < 10000:
+            logging.info("ready to scrape . . .")
+            number_of_pages = math.ceil(product_count/240)
+            for page_num in range(number_of_pages):
+                url = response.url+"&_pgn="+str(page_num+1)
+                yield scrapy.Request(url=url, callback=self.scrape_page)
         else:
+            logging.info("needs to divide ranges . . .")
             mid_rounded = round(_range[1]/2,2)
             _range_1 = [_range[0],mid_rounded]
             _range_2 = [mid_rounded,_range[1]]
 
-            url = shop_url + f"&_udlo={_range_1[0]}&_udhi={_range_1[1]}"
+            url = shop_url + f"&_udhi={_range_1[0]}&_udlo={_range_1[1]}"
             yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range_1})
 
-            url = shop_url + f"&_udlo={_range_2[0]}&_udhi={_range_2[1]}"
+            url = shop_url + f"&_udhi={_range_2[0]}&_udlo={_range_2[1]}"
             yield scrapy.Request(url=url, callback=self.scrape_all_ranges,meta={"_range":_range_2})
 
-
-    def scrape_all_pages(self,response):
-        product_count = self.product_count(response)
-        number_of_pages = math.ceil(product_count/240)
-        for page_num in range(number_of_pages):
-            url = response.url+"&_pgn="+str(page_num+1)
-            yield scrapy.Request(url=url, callback=self.scrape_page)
     
 
     def scrape_page(self,response):
@@ -88,6 +85,7 @@ class ShopSpider(scrapy.Spider):
             try:product["pid"] = re.findall(r"/(\d+)\?",product["product Url"])[0]
             except:pass
             # save product on database
+            logging.info(pprintpp.pformat(product,indent=1))
             self.collection.insert_one(product)
 
 
@@ -96,6 +94,7 @@ class ShopSpider(scrapy.Spider):
         digit_pattern = re.compile(r'\d+')
         digit_matches = digit_pattern.findall(response.css("h1.srp-controls__count-heading ::text").extract()[0])
         result = ''.join(digit_matches)
+        print("number of products:    "+result)
         return int(result)
 
     
