@@ -81,7 +81,7 @@ class EbaySpider(scrapy.Spider):
     def scrape_category(self,response):
         if self.product_count(response) >= 10000:
             filters = self.get_filters(response)
-            self.combine_filters(filters,response)
+            yield scrapy.Request(url=response.url, callback=self.combine_filters,meta={"filters":filters,"filter_params":{},"current_index":0})
         else:
             self.scrape_all_pages(response)
 
@@ -155,25 +155,29 @@ class EbaySpider(scrapy.Spider):
         return r.json()
     
 
-    def combine_filters(self,filters,response, current_index=0, filter_params={}):
-
+    def combine_filters(self,response):
+        filters = response.meta.get("filters")
+        filter_params = response.meta.get("filter_params")
+        current_index = response.meta.get("current_index")
         if filter_params:
             url = response.url + "?" + urlencode(self.filter2params(filter_params))
-            request = scrapy.Request(url)
-            resp = self.crawler.engine.downloader.fetch(request, spider = self)
+            yield scrapy.Request(url=url , callback=self.check_to_scrape_all_pages , meta={"filters":filters,"filter_params":filter_params,"current_index":current_index,"base_url":response.url})
 
-            if  self.product_count(resp) < 10000 :
-                self.scrape_all_pages(resp)
-                return
-        
-        if current_index < len(list(filters.keys())):
+
+    def check_to_scrape_all_pages(self,response):
+        filters = response.meta.get("filters")
+        filter_params = response.meta.get("filter_params")
+        current_index = response.meta.get("current_index")
+        base_url = response.meta.get("base_url")
+        if  self.product_count(response) < 10000 :
+            self.scrape_all_pages(response)
+        elif current_index < len(list(filters.keys())):
             current_filter_name = list(filters.keys())[current_index]
             current_list = filters[current_filter_name]
             for item in current_list:
                 filter_params[current_filter_name]=[item]
-                self.combine_filters(filters, response ,current_index + 1, filter_params)
+                yield scrapy.Request(url=base_url , callback=self.combine_filters , meta={"filters":filters,"filter_params":filter_params,"current_index":current_index +1})
                 filter_params.pop(current_filter_name)
-
 
     def scrape_all_pages(self,response):
         product_count = self.product_count(response)
