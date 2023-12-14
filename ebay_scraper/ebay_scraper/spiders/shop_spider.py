@@ -19,9 +19,8 @@ class ShopSpider(scrapy.Spider):
         config = json.loads(f.read())
     shop_url = config["shop_url"]
     client = MongoClient(config["mongo_client"])
-    db = client.woospa_products
-    collection = db.woospa_collection
-
+    db = client['EbayScraping']
+    collection = db['listing_data_collection']
     def start_requests(self):
         shop_url = self.shop_url
         base_range = self.get_base_range()
@@ -86,7 +85,7 @@ class ShopSpider(scrapy.Spider):
             except:pass
             # save product on database
             logging.info(pprintpp.pformat(product,indent=1))
-            # self.collection.insert_one(product)
+            self.collection.insert_one(product)
 
 
     def product_count(self,response):
