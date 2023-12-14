@@ -13,7 +13,7 @@ class EbaySpider(scrapy.Spider):
 
     def start_requests(self):
         url = "https://www.ebay.de/n/all-categories"
-        # yield scrapy.Request(url=url, callback=self.fetch_mains)
+        yield scrapy.Request(url=url, callback=self.fetch_mains)
 
 
     def fetch_mains(self, response):

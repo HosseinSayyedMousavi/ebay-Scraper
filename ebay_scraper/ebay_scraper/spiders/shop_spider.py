@@ -17,13 +17,13 @@ from pymongo import MongoClient
 class ShopSpider(scrapy.Spider):
     name = 'shop-scraper'
     file_path = os.path.abspath("ebay_scraper/spiders/spider_config.json")
-    client = MongoClient("mongodb+srv://new_user_hossein:Rvkn86GT8wx6LZdw@cluster0.2yara40.mongodb.net/test")
-    db = client.woospa_products
-    collection = db.woospa_collection
 
     with open(file_path,"r") as f:
-        shop_url = json.loads(f.read())["shop_url"]
-
+        config = json.loads(f.read())
+    shop_url = config["shop_url"]
+    client = MongoClient(config["mongo_client"])
+    db = client.woospa_products
+    collection = db.woospa_collection
 
     def start_requests(self):
         shop_url = self.shop_url

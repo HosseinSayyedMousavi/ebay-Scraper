@@ -1,1 +1,4 @@
-{"shop_url":"https://www.ebay.de/sch/i.html?_dkr=1&iconV2Request=true&_blrs=recall_filtering&_ssn=kfz_elektrik&store_name=woospakfzteile&LH_ItemCondition=3&_ipg=240&_oac=1&store_cat=0"}
+{
+"shop_url":"https://www.ebay.de/sch/i.html?_dkr=1&iconV2Request=true&_blrs=recall_filtering&_ssn=kfz_elektrik&store_name=woospakfzteile&LH_ItemCondition=3&_ipg=240&_oac=1&store_cat=0",
+"mongo_client":"mongodb+srv://new_user_hossein:Rvkn86GT8wx6LZdw@cluster0.2yara40.mongodb.net/test"
+}
