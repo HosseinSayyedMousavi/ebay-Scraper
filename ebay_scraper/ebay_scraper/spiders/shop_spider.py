@@ -86,7 +86,7 @@ class ShopSpider(scrapy.Spider):
             except:pass
             # save product on database
             logging.info(pprintpp.pformat(product,indent=1))
-            self.collection.insert_one(product)
+            # self.collection.insert_one(product)
 
 
     def product_count(self,response):
